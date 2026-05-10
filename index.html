@@ -8,33 +8,25 @@
   html, body {
     background: transparent !important;
     font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
+    width: 100vw; height: 100vh; overflow: hidden;
   }
   .wrap {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    background: rgba(0,0,0,0.55);
-    border-radius: 7px;
+    position: absolute; top: 8px; right: 8px;
+    display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px;
+    background: rgba(0,0,0,0.6); border-radius: 8px;
     padding: 5px 9px 5px 8px;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.08);
   }
   .row { display: flex; align-items: center; gap: 5px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: #ff3b3b; box-shadow: 0 0 4px #ff3b3b; flex-shrink: 0; }
-  .city { color: #fff; font-size: 11px; font-weight: 600; }
-  .wicon { font-size: 12px; line-height: 1; }
-  .temp { color: #fff; font-size: 11px; font-weight: 700; }
+  .city { color: #fff; font-size: 11px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.9); white-space: nowrap; }
+  .wicon { font-size: 13px; line-height: 1; }
+  .temp { color: #fff; font-size: 11px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
   .sep { width: 1px; height: 10px; background: rgba(255,255,255,0.2); }
   .clock-ic { font-size: 11px; color: #aaa; }
-  .time { color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+  .time { color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
   .cal-ic { font-size: 11px; color: #4fc3f7; }
-  .date { color: #ddd; font-size: 11px; }
+  .date { color: #ddd; font-size: 11px; text-shadow: 0 1px 3px rgba(0,0,0,0.9); }
 </style>
 </head>
 <body>
@@ -55,7 +47,6 @@
 </div>
 <script>
 function pad(n){ return String(n).padStart(2,'0'); }
-
 function updateClock(){
   const now = new Date();
   document.getElementById('clock').textContent = pad(now.getHours())+':'+pad(now.getMinutes());
@@ -92,55 +83,97 @@ async function reverseGeocode(lat, lon){
     const sehir = a.city || a.province || a.state || '';
     if(ilce && sehir && ilce !== sehir) return ilce+', '+sehir;
     return sehir || ilce || '–';
-  } catch(e){ return '–'; }
+  } catch(e){ return null; }
 }
 
+// IP fallback - birden fazla servis dener
 async function fromIP(){
-  try {
-    const r = await fetch('https://ipapi.co/json/');
-    const d = await r.json();
-    const lat = d.latitude;
-    const lon = d.longitude;
-    const ilce = d.district || '';
-    const sehir = d.region || d.city || '';
-    const city = ilce && sehir && ilce !== sehir ? ilce+', '+sehir : (sehir || ilce || '–');
-    document.getElementById('city').textContent = city;
-    fetchWeather(lat, lon);
-    setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
-  } catch(e){
-    // son çare: Gebze koordinatları
-    document.getElementById('city').textContent = 'Kocaeli, Gebze';
-    fetchWeather(40.8027, 29.4305);
+  const services = [
+    async () => {
+      const r = await fetch('https://ipapi.co/json/');
+      const d = await r.json();
+      if(!d.latitude) throw new Error('no data');
+      const ilce = d.district || '';
+      const sehir = d.region || d.city || '';
+      const city = ilce && sehir && ilce !== sehir ? ilce+', '+sehir : (sehir || ilce);
+      return { city, lat: d.latitude, lon: d.longitude };
+    },
+    async () => {
+      const r = await fetch('https://ipwho.is/');
+      const d = await r.json();
+      if(!d.latitude) throw new Error('no data');
+      return { city: d.city+', '+d.region, lat: d.latitude, lon: d.longitude };
+    },
+    async () => {
+      const r = await fetch('https://freeipapi.com/api/json');
+      const d = await r.json();
+      if(!d.latitude) throw new Error('no data');
+      return { city: d.cityName+', '+d.regionName, lat: d.latitude, lon: d.longitude };
+    }
+  ];
+
+  for(const svc of services){
+    try {
+      const result = await svc();
+      if(result && result.city){
+        document.getElementById('city').textContent = result.city;
+        fetchWeather(result.lat, result.lon);
+        setInterval(function(){ fetchWeather(result.lat, result.lon); }, 10*60*1000);
+        return;
+      }
+    } catch(e){ continue; }
   }
+  document.getElementById('city').textContent = '–';
 }
 
 async function init(){
   updateClock();
   setInterval(updateClock, 1000);
 
-  // 5 saniye içinde GPS gelmezse direkt IP'ye geç
-  let gpsGeldi = false;
-  const gpsTimeout = setTimeout(function(){
-    if(!gpsGeldi) fromIP();
-  }, 5000);
+  let done = false;
 
+  // GPS dene
   if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(async function(pos){
-      gpsGeldi = true;
-      clearTimeout(gpsTimeout);
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      const city = await reverseGeocode(lat, lon);
-      document.getElementById('city').textContent = city;
-      fetchWeather(lat, lon);
-      setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
-    }, function(){
-      gpsGeldi = true;
-      clearTimeout(gpsTimeout);
-      fromIP();
-    }, { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 });
+    // 6 saniye içinde GPS gelmezse IP'ye geç
+    const fallbackTimer = setTimeout(function(){
+      if(!done){ done = true; fromIP(); }
+    }, 6000);
+
+    navigator.geolocation.getCurrentPosition(
+      async function(pos){
+        if(done) return;
+        done = true;
+        clearTimeout(fallbackTimer);
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const city = await reverseGeocode(lat, lon);
+        if(city){
+          document.getElementById('city').textContent = city;
+        } else {
+          // Nominatim başarısız olursa IP'den şehir al ama GPS koordinatlarıyla hava
+          fromIP();
+          return;
+        }
+        fetchWeather(lat, lon);
+        setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
+        // Konumu 90 saniyede bir güncelle (IRL streaming gibi)
+        setInterval(async function(){
+          navigator.geolocation.getCurrentPosition(async function(p){
+            const newCity = await reverseGeocode(p.coords.latitude, p.coords.longitude);
+            if(newCity) document.getElementById('city').textContent = newCity;
+            fetchWeather(p.coords.latitude, p.coords.longitude);
+          }, function(){}, { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 });
+        }, 90*1000);
+      },
+      function(){
+        if(done) return;
+        done = true;
+        clearTimeout(fallbackTimer);
+        fromIP();
+      },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    );
   } else {
-    clearTimeout(gpsTimeout);
     fromIP();
   }
 }
