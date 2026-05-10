@@ -74,108 +74,66 @@ async function fetchWeather(lat, lon){
   } catch(e){}
 }
 
-async function reverseGeocode(lat, lon){
-  try {
-    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=tr&zoom=14');
-    const d = await r.json();
-    const a = d.address;
-    const ilce = a.neighbourhood || a.suburb || a.quarter || a.town || a.district || a.municipality || '';
-    const sehir = a.city || a.province || a.state || '';
-    if(ilce && sehir && ilce !== sehir) return ilce+', '+sehir;
-    return sehir || ilce || '–';
-  } catch(e){ return null; }
-}
-
-// IP fallback - birden fazla servis dener
-async function fromIP(){
-  const services = [
-    async () => {
-      const r = await fetch('https://ipapi.co/json/');
-      const d = await r.json();
-      if(!d.latitude) throw new Error('no data');
-      const ilce = d.district || '';
-      const sehir = d.region || d.city || '';
-      const city = ilce && sehir && ilce !== sehir ? ilce+', '+sehir : (sehir || ilce);
-      return { city, lat: d.latitude, lon: d.longitude };
-    },
-    async () => {
-      const r = await fetch('https://ipwho.is/');
-      const d = await r.json();
-      if(!d.latitude) throw new Error('no data');
-      return { city: d.city+', '+d.region, lat: d.latitude, lon: d.longitude };
-    },
-    async () => {
-      const r = await fetch('https://freeipapi.com/api/json');
-      const d = await r.json();
-      if(!d.latitude) throw new Error('no data');
-      return { city: d.cityName+', '+d.regionName, lat: d.latitude, lon: d.longitude };
-    }
-  ];
-
-  for(const svc of services){
-    try {
-      const result = await svc();
-      if(result && result.city){
-        document.getElementById('city').textContent = result.city;
-        fetchWeather(result.lat, result.lon);
-        setInterval(function(){ fetchWeather(result.lat, result.lon); }, 10*60*1000);
-        return;
-      }
-    } catch(e){ continue; }
-  }
-  document.getElementById('city').textContent = '–';
+function setCity(ilce, sehir){
+  let text = '';
+  if(ilce && sehir && ilce !== sehir) text = ilce+', '+sehir;
+  else text = sehir || ilce || '–';
+  document.getElementById('city').textContent = text;
 }
 
 async function init(){
   updateClock();
   setInterval(updateClock, 1000);
 
-  let done = false;
+  // Servis 1: ip-api.com (HTTP - bazı ortamlarda çalışır)
+  try {
+    const r = await fetch('https://ip-api.com/json/?fields=status,city,regionName,district,lat,lon&lang=tr');
+    const d = await r.json();
+    if(d.status === 'success' && d.lat){
+      setCity(d.district || d.city, d.regionName);
+      fetchWeather(d.lat, d.lon);
+      setInterval(function(){ fetchWeather(d.lat, d.lon); }, 10*60*1000);
+      return;
+    }
+  } catch(e){}
 
-  // GPS dene
-  if(navigator.geolocation){
-    // 6 saniye içinde GPS gelmezse IP'ye geç
-    const fallbackTimer = setTimeout(function(){
-      if(!done){ done = true; fromIP(); }
-    }, 6000);
+  // Servis 2: ipwho.is
+  try {
+    const r = await fetch('https://ipwho.is/');
+    const d = await r.json();
+    if(d.success && d.latitude){
+      setCity(d.city, d.region);
+      fetchWeather(d.latitude, d.longitude);
+      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
+      return;
+    }
+  } catch(e){}
 
-    navigator.geolocation.getCurrentPosition(
-      async function(pos){
-        if(done) return;
-        done = true;
-        clearTimeout(fallbackTimer);
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        const city = await reverseGeocode(lat, lon);
-        if(city){
-          document.getElementById('city').textContent = city;
-        } else {
-          // Nominatim başarısız olursa IP'den şehir al ama GPS koordinatlarıyla hava
-          fromIP();
-          return;
-        }
-        fetchWeather(lat, lon);
-        setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
-        // Konumu 90 saniyede bir güncelle (IRL streaming gibi)
-        setInterval(async function(){
-          navigator.geolocation.getCurrentPosition(async function(p){
-            const newCity = await reverseGeocode(p.coords.latitude, p.coords.longitude);
-            if(newCity) document.getElementById('city').textContent = newCity;
-            fetchWeather(p.coords.latitude, p.coords.longitude);
-          }, function(){}, { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 });
-        }, 90*1000);
-      },
-      function(){
-        if(done) return;
-        done = true;
-        clearTimeout(fallbackTimer);
-        fromIP();
-      },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-    );
-  } else {
-    fromIP();
-  }
+  // Servis 3: ipapi.co
+  try {
+    const r = await fetch('https://ipapi.co/json/');
+    const d = await r.json();
+    if(d.latitude){
+      setCity(d.district || d.city, d.region);
+      fetchWeather(d.latitude, d.longitude);
+      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
+      return;
+    }
+  } catch(e){}
+
+  // Servis 4: freeipapi.com
+  try {
+    const r = await fetch('https://freeipapi.com/api/json');
+    const d = await r.json();
+    if(d.latitude){
+      setCity(d.cityName, d.regionName);
+      fetchWeather(d.latitude, d.longitude);
+      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
+      return;
+    }
+  } catch(e){}
+
+  document.getElementById('city').textContent = '–';
 }
 
 init();
