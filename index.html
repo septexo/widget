@@ -2,48 +2,51 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Widget</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     background: transparent !important;
     font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
   }
-  .widget {
-    display: inline-flex;
+  .wrap {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
     flex-direction: column;
-    gap: 4px;
-    background: rgba(0,0,0,0.65);
-    border-radius: 10px;
-    padding: 8px 14px 8px 10px;
-    border: 1px solid rgba(255,255,255,0.08);
-    margin: 10px;
+    align-items: flex-end;
+    gap: 2px;
+    background: rgba(0,0,0,0.55);
+    border-radius: 7px;
+    padding: 5px 9px 5px 8px;
+    border: 1px solid rgba(255,255,255,0.07);
   }
-  .row { display: flex; align-items: center; gap: 7px; }
+  .row { display: flex; align-items: center; gap: 5px; }
   .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #ff3b3b; box-shadow: 0 0 5px #ff3b3b; flex-shrink: 0;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #ff3b3b; box-shadow: 0 0 4px #ff3b3b; flex-shrink: 0;
   }
-  .city { color: #fff; font-size: 14px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
-  .sep { width: 1px; height: 13px; background: rgba(255,255,255,0.2); }
-  .wicon { font-size: 16px; }
-  .temp { color: #fff; font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
-  .clock-ic { font-size: 13px; color: #aaa; }
-  .time { color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 1px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
-  .cal-ic { font-size: 13px; color: #4fc3f7; }
-  .date { color: #ddd; font-size: 13px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+  .city { color: #fff; font-size: 11px; font-weight: 600; }
+  .wicon { font-size: 12px; line-height: 1; }
+  .temp { color: #fff; font-size: 11px; font-weight: 700; }
+  .sep { width: 1px; height: 10px; background: rgba(255,255,255,0.2); }
+  .clock-ic { font-size: 11px; color: #aaa; }
+  .time { color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+  .cal-ic { font-size: 11px; color: #4fc3f7; }
+  .date { color: #ddd; font-size: 11px; }
 </style>
 </head>
 <body>
-<div class="widget">
+<div class="wrap">
   <div class="row">
     <div class="dot"></div>
-    <span class="city" id="city">Yükleniyor…</span>
-    <div class="sep"></div>
-    <span class="wicon" id="wicon">–</span>
-    <span class="temp" id="temp">–°C</span>
+    <span class="city" id="city">Konum alınıyor…</span>
+    <span class="wicon" id="wicon"></span>
+    <span class="temp" id="temp"></span>
   </div>
   <div class="row">
     <span class="clock-ic">🕐</span>
@@ -55,13 +58,13 @@
 </div>
 <script>
 function pad(n){ return String(n).padStart(2,'0'); }
- 
+
 function updateClock(){
   const now = new Date();
   document.getElementById('clock').textContent = pad(now.getHours())+':'+pad(now.getMinutes());
   document.getElementById('date').textContent = pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear();
 }
- 
+
 function wIcon(c){
   if(c<=0) return '\u2600\ufe0f';
   if(c<=1) return '\ud83c\udf24\ufe0f';
@@ -72,7 +75,7 @@ function wIcon(c){
   if(c<=82) return '\ud83c\udf26\ufe0f';
   return '\u26c8\ufe0f';
 }
- 
+
 async function reverseGeocode(lat, lon){
   try {
     const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=tr&zoom=14');
@@ -85,7 +88,7 @@ async function reverseGeocode(lat, lon){
     return ilce || d.display_name.split(',')[0];
   } catch(e){ return lat.toFixed(1)+', '+lon.toFixed(1); }
 }
- 
+
 async function fetchWeather(lat, lon){
   try {
     const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,weather_code&timezone=auto');
@@ -95,25 +98,47 @@ async function fetchWeather(lat, lon){
     document.getElementById('wicon').textContent = wIcon(c.weather_code);
   } catch(e){}
 }
- 
+
+async function fromIP(){
+  try {
+    const r = await fetch('https://ipapi.co/json/');
+    const d = await r.json();
+    const lat = d.latitude;
+    const lon = d.longitude;
+    const ilce = d.district || '';
+    const sehir = d.region || d.city || '';
+    let city = ilce && sehir && ilce !== sehir ? ilce+', '+sehir : (sehir || ilce || '–');
+    document.getElementById('city').textContent = city;
+    fetchWeather(lat, lon);
+    setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
+  } catch(e){
+    document.getElementById('city').textContent = '–';
+  }
+}
+
 async function init(){
   updateClock();
   setInterval(updateClock, 1000);
-  navigator.geolocation.getCurrentPosition(async pos => {
+
+  if(!navigator.geolocation){
+    fromIP();
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async function(pos){
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
-    const cityName = await reverseGeocode(lat, lon);
-    document.getElementById('city').textContent = cityName;
+    const city = await reverseGeocode(lat, lon);
+    document.getElementById('city').textContent = city;
     await fetchWeather(lat, lon);
     setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
   }, function(){
-    document.getElementById('city').textContent = 'Konum alinamadi';
-    fetchWeather(38.4192, 27.1287);
-  }, {timeout: 10000});
+    // GPS reddedildi veya timeout → IP'ye düş
+    fromIP();
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
 }
- 
+
 init();
 </script>
 </body>
 </html>
- 
