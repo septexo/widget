@@ -74,69 +74,56 @@ async function fetchWeather(lat, lon){
   } catch(e){}
 }
 
-function setCity(ilce, sehir){
-  let text = '';
-  if(ilce && sehir && ilce !== sehir) text = ilce+', '+sehir;
-  else text = sehir || ilce || '–';
-  document.getElementById('city').textContent = text;
+async function reverseGeocode(lat, lon){
+  try {
+    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=tr&zoom=14');
+    const d = await r.json();
+    const a = d.address;
+    const ilce = a.neighbourhood || a.suburb || a.quarter || a.town || a.district || a.municipality || '';
+    const sehir = a.city || a.province || a.state || '';
+    if(ilce && sehir && ilce !== sehir) return ilce+', '+sehir;
+    return sehir || ilce || '–';
+  } catch(e){ return null; }
 }
 
-async function init(){
-  updateClock();
-  setInterval(updateClock, 1000);
-
-  // Servis 1: ip-api.com (HTTP - bazı ortamlarda çalışır)
-  try {
-    const r = await fetch('https://ip-api.com/json/?fields=status,city,regionName,district,lat,lon&lang=tr');
-    const d = await r.json();
-    if(d.status === 'success' && d.lat){
-      setCity(d.district || d.city, d.regionName);
-      fetchWeather(d.lat, d.lon);
-      setInterval(function(){ fetchWeather(d.lat, d.lon); }, 10*60*1000);
-      return;
-    }
-  } catch(e){}
-
-  // Servis 2: ipwho.is
-  try {
-    const r = await fetch('https://ipwho.is/');
-    const d = await r.json();
-    if(d.success && d.latitude){
-      setCity(d.city, d.region);
-      fetchWeather(d.latitude, d.longitude);
-      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
-      return;
-    }
-  } catch(e){}
-
-  // Servis 3: ipapi.co
-  try {
-    const r = await fetch('https://ipapi.co/json/');
-    const d = await r.json();
-    if(d.latitude){
-      setCity(d.district || d.city, d.region);
-      fetchWeather(d.latitude, d.longitude);
-      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
-      return;
-    }
-  } catch(e){}
-
-  // Servis 4: freeipapi.com
-  try {
-    const r = await fetch('https://freeipapi.com/api/json');
-    const d = await r.json();
-    if(d.latitude){
-      setCity(d.cityName, d.regionName);
-      fetchWeather(d.latitude, d.longitude);
-      setInterval(function(){ fetchWeather(d.latitude, d.longitude); }, 10*60*1000);
-      return;
-    }
-  } catch(e){}
-
-  document.getElementById('city').textContent = '–';
+function startWeatherLoop(lat, lon){
+  fetchWeather(lat, lon);
+  setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
 }
 
-init();
+function getLocation(){
+  navigator.geolocation.getCurrentPosition(
+    async function(pos){
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const city = await reverseGeocode(lat, lon);
+      document.getElementById('city').textContent = city || '–';
+      startWeatherLoop(lat, lon);
+
+      // 90 saniyede bir konumu güncelle
+      setInterval(function(){
+        navigator.geolocation.getCurrentPosition(async function(p){
+          const c = await reverseGeocode(p.coords.latitude, p.coords.longitude);
+          if(c) document.getElementById('city').textContent = c;
+          fetchWeather(p.coords.latitude, p.coords.longitude);
+        }, null, { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 });
+      }, 90*1000);
+    },
+    function(err){
+      // İzin reddedildiyse tekrar deneme, sadece – göster
+      document.getElementById('city').textContent = 'İzin gerekli';
+    },
+    {
+      enableHighAccuracy: false,
+      timeout: 30000,   // 30 saniye bekle — Moblin izin sorusu için yeterli süre
+      maximumAge: 60000
+    }
+  );
+}
+
+updateClock();
+setInterval(updateClock, 1000);
+getLocation();
 </script>
 </body>
 </html>
