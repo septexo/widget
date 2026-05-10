@@ -1,301 +1,122 @@
+ML
+Copy
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Widget</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: #0a0a0a;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  html, body {
+    background: transparent !important;
     font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+    overflow: hidden;
   }
-
   .widget {
-    background: rgba(20, 20, 20, 0.95);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 20px;
-    padding: 18px 22px;
-    width: 320px;
-    backdrop-filter: blur(20px);
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(0,0,0,0.65);
+    border-radius: 10px;
+    padding: 8px 14px 8px 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+    margin: 10px;
   }
-
-  .top-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-
-  .location {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
+  .row { display: flex; align-items: center; gap: 7px; }
   .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #ff3b3b;
-    box-shadow: 0 0 6px #ff3b3b;
-    flex-shrink: 0;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #ff3b3b; box-shadow: 0 0 5px #ff3b3b; flex-shrink: 0;
   }
-
-  .city-name {
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.2px;
-  }
-
-  .weather-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .w-icon { font-size: 20px; }
-
-  .temp {
-    color: #fff;
-    font-size: 17px;
-    font-weight: 700;
-  }
-
-  .divider {
-    height: 1px;
-    background: rgba(255,255,255,0.08);
-    margin-bottom: 14px;
-  }
-
-  .bottom-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .time-block {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .clock-icon { font-size: 15px; color: #888; }
-
-  .time {
-    color: #fff;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .date-block {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .cal-icon { font-size: 14px; color: #4fc3f7; }
-
-  .date {
-    color: #aaa;
-    font-size: 13px;
-    font-weight: 400;
-    letter-spacing: 0.4px;
-  }
-
-  .status {
-    margin-top: 12px;
-    font-size: 11px;
-    color: #555;
-    text-align: center;
-  }
-
-  .status a {
-    color: #4fc3f7;
-    text-decoration: none;
-  }
-
-  /* Weather detail */
-  .weather-detail {
-    display: flex;
-    gap: 10px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid rgba(255,255,255,0.07);
-  }
-
-  .wd-item {
-    flex: 1;
-    text-align: center;
-  }
-
-  .wd-label {
-    font-size: 10px;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 3px;
-  }
-
-  .wd-val {
-    font-size: 13px;
-    color: #ccc;
-    font-weight: 500;
-  }
+  .city { color: #fff; font-size: 14px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+  .sep { width: 1px; height: 13px; background: rgba(255,255,255,0.2); }
+  .wicon { font-size: 16px; }
+  .temp { color: #fff; font-size: 14px; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+  .clock-ic { font-size: 13px; color: #aaa; }
+  .time { color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 1px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+  .cal-ic { font-size: 13px; color: #4fc3f7; }
+  .date { color: #ddd; font-size: 13px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
 </style>
 </head>
 <body>
-
 <div class="widget">
-  <div class="top-row">
-    <div class="location">
-      <div class="dot"></div>
-      <span class="city-name" id="city">Konum alınıyor…</span>
-    </div>
-    <div class="weather-right">
-      <span class="w-icon" id="wicon">–</span>
-      <span class="temp" id="temp">–°C</span>
-    </div>
+  <div class="row">
+    <div class="dot"></div>
+    <span class="city" id="city">Yükleniyor…</span>
+    <div class="sep"></div>
+    <span class="wicon" id="wicon">–</span>
+    <span class="temp" id="temp">–°C</span>
   </div>
-
-  <div class="divider"></div>
-
-  <div class="bottom-row">
-    <div class="time-block">
-      <span class="clock-icon">🕐</span>
-      <span class="time" id="clock">--:--</span>
-    </div>
-    <div class="date-block">
-      <span class="cal-icon">📅</span>
-      <span class="date" id="date">--.--.----</span>
-    </div>
+  <div class="row">
+    <span class="clock-ic">🕐</span>
+    <span class="time" id="clock">--:--</span>
+    <div class="sep"></div>
+    <span class="cal-ic">📅</span>
+    <span class="date" id="date">--.--.----</span>
   </div>
-
-  <div class="weather-detail" id="detail" style="display:none">
-    <div class="wd-item">
-      <div class="wd-label">Nem</div>
-      <div class="wd-val" id="hum">–</div>
-    </div>
-    <div class="wd-item">
-      <div class="wd-label">Rüzgar</div>
-      <div class="wd-val" id="wind">–</div>
-    </div>
-    <div class="wd-item">
-      <div class="wd-label">Hissedilen</div>
-      <div class="wd-val" id="feels">–</div>
-    </div>
-  </div>
-
-  <div class="status" id="status">📍 Konum izni bekleniyor…</div>
 </div>
-
 <script>
 function pad(n){ return String(n).padStart(2,'0'); }
-
+ 
 function updateClock(){
   const now = new Date();
   document.getElementById('clock').textContent = pad(now.getHours())+':'+pad(now.getMinutes());
   document.getElementById('date').textContent = pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear();
 }
-
-function weatherIcon(code){
-  if(code<=0) return '☀️';
-  if(code<=1) return '🌤️';
-  if(code<=3) return '⛅';
-  if(code<=48) return '🌫️';
-  if(code<=67) return '🌧️';
-  if(code<=77) return '❄️';
-  if(code<=82) return '🌦️';
-  return '⛈️';
+ 
+function wIcon(c){
+  if(c<=0) return '\u2600\ufe0f';
+  if(c<=1) return '\ud83c\udf24\ufe0f';
+  if(c<=3) return '\u26c5';
+  if(c<=48) return '\ud83c\udf2b\ufe0f';
+  if(c<=67) return '\ud83c\udf27\ufe0f';
+  if(c<=77) return '\u2744\ufe0f';
+  if(c<=82) return '\ud83c\udf26\ufe0f';
+  return '\u26c8\ufe0f';
 }
-
-function weatherDesc(code){
-  if(code<=0) return 'Açık';
-  if(code<=1) return 'Az bulutlu';
-  if(code<=3) return 'Bulutlu';
-  if(code<=48) return 'Sisli';
-  if(code<=67) return 'Yağmurlu';
-  if(code<=77) return 'Karlı';
-  if(code<=82) return 'Sağanak';
-  return 'Fırtınalı';
-}
-
+ 
 async function reverseGeocode(lat, lon){
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=tr`);
+    const r = await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=tr&zoom=14');
     const d = await r.json();
     const a = d.address;
-    // İlçe + şehir
-    const district = a.district || a.town || a.municipality || a.suburb || '';
-    const city = a.province || a.city || a.state || '';
-    if(district && city && district !== city) return district + ', ' + city;
-    return city || district || d.display_name.split(',')[0];
-  } catch(e){
-    return `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-  }
+    const ilce = a.neighbourhood || a.suburb || a.quarter || a.town || a.district || a.municipality || '';
+    const sehir = a.city || a.province || a.state || '';
+    if(ilce && sehir && ilce !== sehir) return ilce + ', ' + sehir;
+    if(sehir) return sehir;
+    return ilce || d.display_name.split(',')[0];
+  } catch(e){ return lat.toFixed(1)+', '+lon.toFixed(1); }
 }
-
+ 
 async function fetchWeather(lat, lon){
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code&wind_speed_unit=kmh&timezone=auto`;
-    const r = await fetch(url);
+    const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,weather_code&timezone=auto');
     const d = await r.json();
     const c = d.current;
-    document.getElementById('temp').textContent = Math.round(c.temperature_2m) + '°C';
-    document.getElementById('wicon').textContent = weatherIcon(c.weather_code);
-    document.getElementById('hum').textContent = c.relative_humidity_2m + '%';
-    document.getElementById('wind').textContent = Math.round(c.wind_speed_10m) + ' km/s';
-    document.getElementById('feels').textContent = Math.round(c.apparent_temperature) + '°C';
-    document.getElementById('detail').style.display = 'flex';
-    document.getElementById('status').textContent = '🔄 ' + new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) + ' güncellendi · ' + weatherDesc(c.weather_code);
-  } catch(e){
-    document.getElementById('status').textContent = '⚠️ Hava durumu alınamadı';
-  }
+    document.getElementById('temp').textContent = Math.round(c.temperature_2m)+'°C';
+    document.getElementById('wicon').textContent = wIcon(c.weather_code);
+  } catch(e){}
 }
-
+ 
 async function init(){
   updateClock();
   setInterval(updateClock, 1000);
-
-  if(!navigator.geolocation){
-    document.getElementById('city').textContent = 'Konum desteklenmiyor';
-    document.getElementById('status').textContent = '⚠️ Tarayıcı konum desteklemiyor';
-    return;
-  }
-
   navigator.geolocation.getCurrentPosition(async pos => {
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
-
-    document.getElementById('status').textContent = '🌐 Hava durumu yükleniyor…';
-
-    const [cityName] = await Promise.all([reverseGeocode(lat, lon)]);
+    const cityName = await reverseGeocode(lat, lon);
     document.getElementById('city').textContent = cityName;
-
     await fetchWeather(lat, lon);
-
-    // Her 10 dakikada güncelle
-    setInterval(() => fetchWeather(lat, lon), 10 * 60 * 1000);
-
-  }, err => {
-    document.getElementById('city').textContent = 'İzmir';
-    document.getElementById('status').textContent = '⚠️ Konum izni reddedildi — varsayılan şehir';
-    // Fallback: İzmir
+    setInterval(function(){ fetchWeather(lat, lon); }, 10*60*1000);
+  }, function(){
+    document.getElementById('city').textContent = 'Konum alinamadi';
     fetchWeather(38.4192, 27.1287);
-  }, { enableHighAccuracy: false, timeout: 10000 });
+  }, {timeout: 10000});
 }
-
+ 
 init();
 </script>
 </body>
 </html>
+ 
